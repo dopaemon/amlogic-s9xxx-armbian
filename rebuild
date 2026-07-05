@@ -137,6 +137,41 @@ clean_model_conf() {
     sed -e 's/NA//g' -e 's/NULL//g' -e 's/[ ][ ]*//g' "${model_conf}" | grep -E '^[^#].+'
 }
 
+is_local_kernel_repo() {
+    [[ -d "${kernel_repo}" ]]
+}
+
+find_local_kernel_dir() {
+    local key="${1}"
+    local kernel_var="${2}"
+    local p
+
+    for p in \
+        "${kernel_repo}/${key}/${kernel_var}" \
+        "${kernel_repo}/kernel/${key}/${kernel_var}" \
+        "${kernel_repo}/pub/${key}/${kernel_var}"; do
+        [[ -s "$(ls "${p}"/boot-${kernel_var}*.tar.gz 2>/dev/null | head -n 1)" ]] && {
+            echo "${p}"
+            return 0
+        }
+    done
+    return 1
+}
+
+query_local_kernel_version() {
+    local key="${1}"
+    local kernel_verpatch="${2}"
+    local p
+
+    for p in "${kernel_repo}/${key}" "${kernel_repo}/kernel/${key}" "${kernel_repo}/pub/${key}"; do
+        [[ -d "${p}" ]] || continue
+        find "${p}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null |
+            grep -E "^${kernel_verpatch//./\.}\.[0-9]+$" |
+            sort -V | tail -n 1
+        return 0
+    done
+}
+
 mount_try() {
     # Check mount parameters
     local m_type="${1}"
@@ -412,8 +447,12 @@ check_data() {
     echo -e "${INFO} The kernel tags list: [ ${!tags_list[@]} ]"
 
     # Convert kernel repository address to api format
-    [[ "${kernel_repo}" =~ ^https: ]] && kernel_repo="$(echo ${kernel_repo} | awk -F'/' '{print $4"/"$5}')"
-    kernel_api="https://github.com/${kernel_repo}"
+    if [[ "${kernel_repo}" =~ ^https: ]]; then
+        kernel_repo="$(echo ${kernel_repo} | awk -F'/' '{print $4"/"$5}')"
+        kernel_api="https://github.com/${kernel_repo}"
+    elif ! is_local_kernel_repo; then
+        kernel_api="https://github.com/${kernel_repo}"
+    fi
 }
 
 find_armbian() {
@@ -508,12 +547,16 @@ query_kernel() {
                 kernel_verpatch="$(echo ${kernel_var} | awk -F '.' '{print $1"."$2}')"
 
                 # Query the latest kernel version
-                latest_version="$(
-                    curl -fsSL \
-                        ${kernel_api}/releases/expanded_assets/kernel_${key} |
-                        grep -oP "${kernel_verpatch}\.[0-9]+(?=\.tar\.gz)" |
-                        sort -urV | head -n 1
-                )"
+                if is_local_kernel_repo; then
+                    latest_version="$(query_local_kernel_version "${key}" "${kernel_verpatch}")"
+                else
+                    latest_version="$(
+                        curl -fsSL \
+                            ${kernel_api}/releases/expanded_assets/kernel_${key} |
+                            grep -oP "${kernel_verpatch}\.[0-9]+(?=\.tar\.gz)" |
+                            sort -urV | head -n 1
+                    )"
+                fi
 
                 if [[ -n "${latest_version}" ]]; then
                     tmp_arr_kernels[${i}]="${latest_version}"
@@ -563,24 +606,33 @@ download_kernel() {
             i="1"
             for kernel_var in "${down_kernel_list[@]}"; do
                 if [[ ! -d "${kernel_path}/${key}/${kernel_var}" ]]; then
-                    kernel_down_from="https://github.com/${kernel_repo}/releases/download/kernel_${key}/${kernel_var}.tar.gz"
-                    echo -e "${INFO} (${x}.${i}) [ ${key} - ${kernel_var} ] Kernel download from [ ${kernel_down_from} ]"
-
-                    # Download the kernel files. If the download fails, try again 10 times.
                     [[ -d "${kernel_path}/${key}" ]] || mkdir -p "${kernel_path}/${key}"
-                    local _curl_ok=0
-                    for t in {1..10}; do
-                        if curl -fsSL "${kernel_down_from}" -o "${kernel_path}/${key}/${kernel_var}.tar.gz"; then
-                            _curl_ok=1
-                            break
-                        fi
-                        sleep 60
-                    done
-                    [[ "${_curl_ok}" -eq 1 ]] || error_msg "Failed to download the kernel files from the server."
+                    if is_local_kernel_repo; then
+                        local_kernel_dir="$(find_local_kernel_dir "${key}" "${kernel_var}")"
+                        [[ -n "${local_kernel_dir}" ]] || error_msg "Missing local kernel package: [ ${kernel_repo} - ${key}/${kernel_var} ]"
+                        echo -e "${INFO} (${x}.${i}) [ ${key} - ${kernel_var} ] Kernel copy from [ ${local_kernel_dir} ]"
+                        mkdir -p "${kernel_path}/${key}/${kernel_var}"
+                        cp -af --no-preserve=ownership "${local_kernel_dir}/." "${kernel_path}/${key}/${kernel_var}" ||
+                            error_msg "Failed to copy local kernel files."
+                    else
+                        kernel_down_from="https://github.com/${kernel_repo}/releases/download/kernel_${key}/${kernel_var}.tar.gz"
+                        echo -e "${INFO} (${x}.${i}) [ ${key} - ${kernel_var} ] Kernel download from [ ${kernel_down_from} ]"
 
-                    # Decompress the kernel files
-                    tar -mxzf "${kernel_path}/${key}/${kernel_var}.tar.gz" -C "${kernel_path}/${key}" ||
-                        error_msg "[ ${kernel_var} ] kernel decompression failed."
+                        # Download the kernel files. If the download fails, try again 10 times.
+                        local _curl_ok=0
+                        for t in {1..10}; do
+                            if curl -fsSL "${kernel_down_from}" -o "${kernel_path}/${key}/${kernel_var}.tar.gz"; then
+                                _curl_ok=1
+                                break
+                            fi
+                            sleep 60
+                        done
+                        [[ "${_curl_ok}" -eq 1 ]] || error_msg "Failed to download the kernel files from the server."
+
+                        # Decompress the kernel files
+                        tar -mxzf "${kernel_path}/${key}/${kernel_var}.tar.gz" -C "${kernel_path}/${key}" ||
+                            error_msg "[ ${kernel_var} ] kernel decompression failed."
+                    fi
                 else
                     echo -e "${INFO} (${x}.${i}) [ ${key} - ${kernel_var} ] Kernel is in the local directory."
                 fi

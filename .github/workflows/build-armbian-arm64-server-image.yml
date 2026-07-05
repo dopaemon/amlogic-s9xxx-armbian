@@ -1,9 +1,9 @@
 #==========================================================================
-# Description: Build Armbian arm64 server image
-# Copyright (C) 2021 https://github.com/ophub/amlogic-s9xxx-armbian
+# Description: Build DietPi arm64 TV box image
+# Uses resources from https://github.com/ophub/amlogic-s9xxx-armbian
 #==========================================================================
 
-name: Build Armbian arm64 server image
+name: Build DietPi arm64 TV box image
 
 on:
   repository_dispatch:
@@ -269,10 +269,10 @@ on:
       kernel_repo:
         description: "Set the kernel repository."
         required: false
-        default: "ophub/kernel"
+        default: "kernel"
         type: choice
         options:
-          - ophub/kernel
+          - kernel
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
@@ -283,7 +283,7 @@ on:
           - flippy
           - beta
       armbian_fstype:
-        description: "Select armbian rootfs type."
+        description: "Select rootfs type."
         required: false
         default: "ext4"
         type: choice
@@ -300,7 +300,7 @@ on:
           - desktop
           - beta
       builder_name:
-        description: "Set Armbian builder signature."
+        description: "Set image builder signature."
         required: false
         default: "ophub"
         type: choice
@@ -308,7 +308,7 @@ on:
           - ophub
           - angel
       config_board:
-        description: "Set the base Armbian board name."
+        description: "Set the base build board name."
         required: false
         default: "odroidn2"
 
@@ -343,7 +343,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
 
-    name: build-armbian-${{ matrix.release }}
+    name: build-dietpi-${{ matrix.release }}
 
     steps:
       - name: Checkout
@@ -394,7 +394,7 @@ jobs:
           df -Th
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Download Armbian source code
+      - name: Download DietPi build source
         id: down
         working-directory: /builder
         if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
@@ -405,7 +405,7 @@ jobs:
           ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Compile Armbian [ ${{ matrix.release }} ]
+      - name: Compile DietPi base [ ${{ matrix.release }} ]
         id: compile
         working-directory: /builder
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
@@ -413,7 +413,7 @@ jobs:
           # Enable QEMU emulation for ARM cross-compilation
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
 
-          # Set the board name for the base Armbian image
+          # Set the board name for the base image
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
 
@@ -439,10 +439,10 @@ jobs:
 
           # Display disk usage after cleanup
           df -hT ${PWD}
-          echo "build_tag=Armbian_${{ matrix.release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "build_tag=DietPi_${{ matrix.release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Upload Armbian image to Release
+      - name: Upload DietPi base image to Release
         uses: ophub/upload-to-releases@main
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
         with:
@@ -454,8 +454,8 @@ jobs:
           make_latest: true
           gh_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rebuild Armbian for target boards
-        uses: ophub/amlogic-s9xxx-armbian@main
+      - name: Repack DietPi for target boards
+        uses: ./
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: armbian
@@ -480,11 +480,10 @@ jobs:
           make_latest: true
           gh_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            ### Armbian Image Information
-            - Default username: `root`
-            - Default password: `1234`
-            - Install command: `armbian-install`
-            - Update command: `armbian-update`
+            ### DietPi TV box image
+            - Based on DietPi build source + Ophub TV box resources
+            - Default username/password follow DietPi image defaults
+            - Compatibility commands may include `armbian-install` / `armbian-update`
             ### Applicable Platform
             - 🐧 `arm64`
-            - 🐋 Docker image: https://hub.docker.com/u/ophub
+            - Credit: https://github.com/ophub/amlogic-s9xxx-armbian

@@ -1,15 +1,15 @@
-name: "Rebuild Armbian and Kernel"
-author: "https://github.com/ophub/amlogic-s9xxx-armbian"
-description: "Support Amlogic, Rockchip and Allwinner boxes."
+name: "Build DietPi TV box images"
+author: "Based on https://github.com/ophub/amlogic-s9xxx-armbian"
+description: "Build DietPi images for supported Amlogic, Rockchip and Allwinner TV boxes."
 inputs:
   # Select build target
   build_target:
     description: "Select build target: armbian / kernel"
     required: false
     default: "armbian"
-  # For build armbian -----
+  # For rebuild image -----
   armbian_path:
-    description: "Set Armbian file path."
+    description: "Set base image path."
     required: false
     default: "build/output/images/*.img"
   armbian_board:
@@ -19,7 +19,7 @@ inputs:
   kernel_repo:
     description: "Set kernel repository."
     required: false
-    default: "ophub/kernel"
+    default: "kernel"
   kernel_usage:
     description: "Set the tags of the stable kernel."
     required: false
@@ -33,11 +33,11 @@ inputs:
     required: false
     default: "true"
   armbian_fstype:
-    description: "Set armbian rootfs type: ext4 / btrfs"
+    description: "Set rootfs type: ext4 / btrfs"
     required: false
     default: "ext4"
   armbian_size:
-    description: "Set armbian rootfs size(Unit: MiB)."
+    description: "Set rootfs size(Unit: MiB)."
     required: false
     default: ""
   armbian_files:
@@ -214,9 +214,17 @@ runs:
 
             cd ${{ github.action_path }}
             echo -e "Starting to rebuild Armbian..."
+            kernel_repo="${{ inputs.kernel_repo }}"
+            if [[ "${kernel_repo}" == "kernel" && -d "${{ github.action_path }}/kernel" ]]; then
+                kernel_repo="${{ github.action_path }}/kernel"
+            elif [[ -n "${kernel_repo}" && "${kernel_repo}" != */* && -d "${{ github.workspace }}/${kernel_repo}" ]]; then
+                kernel_repo="${{ github.workspace }}/${kernel_repo}"
+            elif [[ -n "${kernel_repo}" && ! "${kernel_repo}" =~ ^https: && -d "${{ github.workspace }}/${kernel_repo}" ]]; then
+                kernel_repo="${{ github.workspace }}/${kernel_repo}"
+            fi
             make_args=()
             [[ -n "${{ inputs.armbian_board }}"   ]] && make_args+=(-b "${{ inputs.armbian_board }}")
-            [[ -n "${{ inputs.kernel_repo }}"     ]] && make_args+=(-r "${{ inputs.kernel_repo }}")
+            [[ -n "${kernel_repo}"                ]] && make_args+=(-r "${kernel_repo}")
             [[ -n "${{ inputs.kernel_usage }}"    ]] && make_args+=(-u "${{ inputs.kernel_usage }}")
             [[ -n "${{ inputs.armbian_kernel }}"  ]] && make_args+=(-k "${{ inputs.armbian_kernel }}")
             [[ -n "${{ inputs.auto_kernel }}"     ]] && make_args+=(-a "${{ inputs.auto_kernel }}")
