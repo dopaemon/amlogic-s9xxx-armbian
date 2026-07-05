@@ -10,7 +10,7 @@ assignees: ''
  - SOC: [e.g. S095x3]
  - Model [e.g. HK1]
 
-**Armbian Version | 系统版本**
+**DietPi image version | 系统版本**
  - Kernel Version: [e.g. 6.18.16]
  - Release: [e.g. resolute/trixie]
 

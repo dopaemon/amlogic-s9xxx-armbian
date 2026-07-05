@@ -797,8 +797,8 @@ make_image() {
 
     # echo -e "${INFO} The [ ${board} ] Armbian image partition status: [ skip:${skip_mb} / boot:${boot_mb} / rootfs:${root_mb} ] MiB."
 
-    # Set Armian file name
-    armbian_filename="Armbian_${armbian_rebuild_version}_${PLATFORM}_${board}_${release_codename}_${kernel}_${os_type}_$(date +"%Y.%m.%d").img"
+    # Set image file name
+    armbian_filename="DietPi_${armbian_rebuild_version}_${PLATFORM}_${board}_${release_codename}_${kernel}_${os_type}_$(date +"%Y.%m.%d").img"
     build_image_file="${tmp_outpath}/${armbian_filename}"
     rm -f "${build_image_file}"
 
@@ -1155,7 +1155,7 @@ refactor_rootfs() {
             -e "s|^BOOT_SOC=.*|BOOT_SOC=\"${SOC}\"|g" \
             -e "s|^IMAGE_TYPE=.*|IMAGE_TYPE=rebuild|g" \
             -e "s|^BOARD_TYPE=.*|BOARD_TYPE=diy|g" \
-            -e "s|^VENDOR=.*|VENDOR=\"Armbian OS\"|g" \
+            -e "s|^VENDOR=.*|VENDOR=\"DietPi\"|g" \
             -e "s|^FORCE_BOOTSCRIPT_UPDATE=.*|FORCE_BOOTSCRIPT_UPDATE=\"no\"|g" \
             -e "s|^BOOTSCRIPT_FORCE_UPDATE=.*|FORCE_BOOTSCRIPT_UPDATE=\"no\"|g" \
             -e "s|^FORCE_UBOOT_UPDATE=.*|FORCE_UBOOT_UPDATE=\"no\"|g" \
@@ -1314,8 +1314,9 @@ refactor_rootfs() {
         "MLUBOOT_STATUS='no'"
         "MAINLINE_UBOOT='${RECORD_MAINLINE_UBOOT}'"
         "BOOTLOADER_IMG='${RECORD_BOOTLOADER_IMG}'"
-        "BUILD_REPOSITORY='github.com/armbian/build'"
-        "REBUILD_REPOSITORY='github.com/ophub/amlogic-s9xxx-armbian'"
+        "BUILD_REPOSITORY='github.com/MichaIng/build'"
+        "REBUILD_REPOSITORY='DietPi TV Box Builder'"
+        "UPSTREAM_REPOSITORY='github.com/ophub/amlogic-s9xxx-armbian'"
         "CONTRIBUTORS='${CONTRIBUTORS}'"
         "BUILDER_NAME='${builder_name}'"
         "PACKAGED_DATE='$(date +%Y-%m-%d)'"
