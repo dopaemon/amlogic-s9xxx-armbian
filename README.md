@@ -43,29 +43,28 @@ Default:
 
 - source: `MichaIng/build:dietpi`
 - board: `s905w`
-- kernel repo: `ophub/kernel` releases by default
-- bundled `./kernel`: config/patch resources only, not default package source
+- kernel source: Ophub (`ophub/linux-*.y`) khi `compile_kernel: true`
+- kernel config: bundled `./kernel/kernel-config/release/<kernel_usage>`
+- fallback kernel package repo: `ophub/kernel` khi `compile_kernel: false`
 - action: local `uses: ./`
 
-Chạy Actions → chọn release/board/kernel → build DietPi base → repack cho target board.
+Chạy Actions → chọn release/board/kernel → build DietPi base → compile kernel bằng config local → repack cho target board.
 
 ## Kernel
 
-Mặc định workflow dùng release packages từ:
+Mặc định workflow build kernel package local từ Ophub source, dùng config trong repo này:
 
 ```text
-ophub/kernel
+kernel/kernel-config/release/<kernel_usage>/config-*
 ```
 
-Folder vendored này vẫn giữ để tham chiếu config/patch từ Ophub:
+Folder vendored này là config/patch resources, không phải Linux source tree:
 
 ```text
 kernel/
 ```
 
-Nó không phải Linux source tree và hiện không phải package source mặc định.
-
-Nếu muốn dùng `kernel_repo: kernel`, folder đó phải có package kernel local dạng:
+Nếu tắt `compile_kernel` và muốn dùng `kernel_repo: kernel`, folder đó phải có package kernel local dạng:
 
 ```text
 kernel/<tag>/<version>/boot-*.tar.gz
