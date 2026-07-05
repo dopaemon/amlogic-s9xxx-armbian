@@ -1,70 +1,82 @@
 # DietPi TV Box Builder
 
-Dự án này build **DietPi arm64 images** cho các TV box đang có trong database của Ophub `amlogic-s9xxx-armbian`.
+Build **DietPi arm64 images** for supported Amlogic, Rockchip, and Allwinner TV boxes using the proven device database, boot assets, kernel layout, and tooling from the Ophub ecosystem.
 
-Mục tiêu: giữ pipeline đơn giản để ra image DietPi. Không cố giữ đầy đủ bề mặt/phức tạp như upstream Ophub.
+This project is DietPi-focused: the goal is to provide a smaller, simpler build pipeline for TV box images, not to mirror the full upstream Ophub project surface.
 
-## Credit / upstream
+## Features
 
-Project này dùng tài nguyên, script, device database, u-boot/kernel layout từ:
+- Builds DietPi arm64 base images from `MichaIng/build` branch `dietpi`
+- Rebuilds images for supported TV box targets
+- Keeps the full Ophub board database
+- Supports Amlogic, Rockchip, and Allwinner platforms
+- Builds kernel packages from Ophub kernel sources with local config templates
+- Includes CAN / USB-CAN kernel config support in local templates
+- Publishes DietPi-named release artifacts
 
-- [ophub/amlogic-s9xxx-armbian](https://github.com/ophub/amlogic-s9xxx-armbian)
-- [ophub/kernel](https://github.com/ophub/kernel)
-- [ophub/u-boot](https://github.com/ophub/u-boot)
-- [MichaIng/build](https://github.com/MichaIng/build) branch `dietpi`
+## Supported devices
 
-License upstream giữ nguyên theo `LICENSE`.
+The supported board list is inherited from Ophub and kept generic.
 
-## Support
-
-Giữ toàn bộ board/platform từ Ophub database:
-
-- Amlogic
-- Rockchip
-- Allwinner
-
-`S905W` chỉ là board test mặc định, không phải board duy nhất.
-
-Board list nằm ở:
+Database:
 
 ```text
 build-armbian/armbian-files/common-files/etc/model_database.conf
 ```
 
+Default board for workflow smoke builds:
+
+```text
+s905w
+```
+
+`S905W` is only the default test target, not the only supported device.
+
 ## GitHub Actions
 
-Chỉ dùng workflow này:
+Primary workflow:
 
 ```text
 .github/workflows/build-armbian-arm64-server-image.yml
 ```
 
-Default:
+Default flow:
 
-- source: `MichaIng/build:dietpi`
-- board: `s905w`
-- kernel source: Ophub (`ophub/linux-*.y`) khi `compile_kernel: true`
-- kernel config: bundled `./kernel/kernel-config/release/<kernel_usage>`
-- fallback kernel package repo: `ophub/kernel` khi `compile_kernel: false`
-- action: local `uses: ./`
+```text
+DietPi base image
+→ Ophub kernel source + local kernel config
+→ TV box repack
+→ DietPi release artifacts
+```
 
-Chạy Actions → chọn release/board/kernel → build DietPi base → compile kernel bằng config local → repack cho target board.
+Important defaults:
+
+- DietPi source: `MichaIng/build:dietpi`
+- Kernel source: Ophub kernel sources
+- Kernel config: `kernel/kernel-config/release/<kernel_usage>/config-*`
+- Fallback kernel package repo: `ophub/kernel`
+- Default board: `s905w`
+- Local action: `uses: ./`
 
 ## Kernel
 
-Mặc định workflow build kernel package local từ Ophub source, dùng config trong repo này:
-
-```text
-kernel/kernel-config/release/<kernel_usage>/config-*
-```
-
-Folder vendored này là config/patch resources, không phải Linux source tree:
+The repository includes Ophub-derived kernel config and patch resources:
 
 ```text
 kernel/
 ```
 
-Nếu tắt `compile_kernel` và muốn dùng `kernel_repo: kernel`, folder đó phải có package kernel local dạng:
+This directory is **not** a Linux source tree.
+
+The workflow can compile kernel packages from Ophub kernel sources while using the local config templates in this repository. These templates include CAN and USB-CAN support, including `CONFIG_CAN_GS_USB=m`.
+
+If local kernel compilation is disabled, the workflow can fall back to prebuilt packages from:
+
+```text
+ophub/kernel
+```
+
+For a local package repository, the expected layout is:
 
 ```text
 kernel/<tag>/<version>/boot-*.tar.gz
@@ -73,22 +85,34 @@ kernel/<tag>/<version>/modules-*.tar.gz
 kernel/<tag>/<version>/header-*.tar.gz
 ```
 
-## Local smoke test
+## Runtime compatibility
 
-```bash
-cd amlogic-s9xxx-armbian
-bash -n rebuild
-find kernel -name 'boot-*.tar.gz'
+Some internal names, paths, and commands still use `armbian` naming for compatibility with the inherited Ophub scripts and overlays.
+
+Examples:
+
+```text
+armbian-install
+armbian-update
+armbian_* variables
+build-armbian/ paths
 ```
 
-Rebuild local khi đã có input image + kernel package:
+These are compatibility shims, not project branding.
 
-```bash
-sudo ./rebuild -b s905w -r kernel -k 6.12.y
-```
+## Credits
 
-## Notes
+This project uses resources and implementation work from:
 
-- Internal names vẫn còn `armbian_*` để giữ compatibility với script Ophub.
-- Runtime commands như `armbian-install`, `armbian-update` vẫn giữ vì overlay hiện phụ thuộc chúng.
-- Đây là DietPi-focused fork, không phải upstream Ophub đầy đủ.
+- [ophub/amlogic-s9xxx-armbian](https://github.com/ophub/amlogic-s9xxx-armbian)
+- [ophub/kernel](https://github.com/ophub/kernel)
+- [ophub/u-boot](https://github.com/ophub/u-boot)
+- [MichaIng/build](https://github.com/MichaIng/build)
+- [DietPi](https://dietpi.com/)
+- [Armbian](https://www.armbian.com/)
+
+All upstream licenses and credits remain with their respective projects and contributors.
+
+## License
+
+This repository keeps the upstream license terms from the projects it derives from. See `LICENSE` and the linked upstream projects for details.
