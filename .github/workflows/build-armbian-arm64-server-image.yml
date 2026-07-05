@@ -421,7 +421,7 @@ jobs:
           cd build/
               ./compile.sh RELEASE=${{ matrix.release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
                            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
+                           COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes KERNEL_BUILD_DTBS=no
 
           echo "status=success" >> ${GITHUB_OUTPUT}
 
