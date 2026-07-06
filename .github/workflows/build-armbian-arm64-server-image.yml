@@ -269,9 +269,10 @@ on:
       kernel_repo:
         description: "Set the kernel package repository."
         required: false
-        default: "ophub/kernel"
+        default: "dopaemon/amlogic-s9xxx-armbian"
         type: choice
         options:
+          - dopaemon/amlogic-s9xxx-armbian
           - ophub/kernel
           - kernel
       kernel_usage:

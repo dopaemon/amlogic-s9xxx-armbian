@@ -43,8 +43,10 @@ Primary workflow:
 Default flow:
 
 ```text
-DietPi base image
+compile-*-kernel workflow
 → Ophub kernel source + local kernel config
+→ kernel_* release packages
+→ DietPi image workflow
 → TV box repack
 → DietPi release artifacts
 ```
@@ -54,6 +56,7 @@ Important defaults:
 - DietPi source: `MichaIng/build:dietpi`
 - Kernel source: Ophub kernel sources
 - Kernel config: `kernel/kernel-config/release/<kernel_usage>/config-*`
+- Kernel package repo: `dopaemon/amlogic-s9xxx-armbian`
 - Fallback kernel package repo: `ophub/kernel`
 - Default board: `s905w`
 - Local action: `uses: ./`
@@ -68,9 +71,9 @@ kernel/
 
 This directory is **not** a Linux source tree.
 
-The workflow can compile kernel packages from Ophub kernel sources while using the local config templates in this repository. These templates include CAN and USB-CAN support, including `CONFIG_CAN_GS_USB=m`.
+Kernel packages are built by the separate `compile-*-kernel` workflows from Ophub kernel sources while using the local config templates in this repository. These templates include CAN and USB-CAN support, including `CONFIG_CAN_GS_USB=m`.
 
-If local kernel compilation is disabled, the workflow can fall back to prebuilt packages from:
+The DietPi image workflow consumes kernel packages from this repository's releases by default, with fallback packages available from:
 
 ```text
 ophub/kernel
