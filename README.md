@@ -34,22 +34,30 @@ s905w
 
 ## GitHub Actions
 
-Primary workflow:
+Primary image workflow:
 
 ```text
 .github/workflows/build-armbian-arm64-server-image.yml
 ```
 
+Kernel package workflow:
+
+```text
+.github/workflows/compile-kernel.yml
+```
+
 Default flow:
 
 ```text
-compile-*-kernel workflow
+compile-kernel workflow
 → Ophub kernel source + local kernel config
 → kernel_* release packages
 → DietPi image workflow
 → TV box repack
 → DietPi release artifacts
 ```
+
+Build kernel packages first when using this repository as `kernel_repo`; the image workflow downloads those release packages and does not compile TV box kernels inline.
 
 Important defaults:
 
@@ -71,7 +79,7 @@ kernel/
 
 This directory is **not** a Linux source tree.
 
-Kernel packages are built by the separate `compile-*-kernel` workflows from Ophub kernel sources while using the local config templates in this repository. These templates include CAN and USB-CAN support, including `CONFIG_CAN_GS_USB=m`.
+Kernel packages are built by `compile-kernel.yml` from Ophub kernel sources while using the local config templates in this repository. These templates include CAN and USB-CAN support, including `CONFIG_CAN_GS_USB=m`.
 
 The DietPi image workflow consumes kernel packages from this repository's releases by default, with fallback packages available from:
 

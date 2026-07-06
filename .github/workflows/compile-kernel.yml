@@ -37,6 +37,10 @@ on:
 env:
   TZ: Etc/UTC
 
+concurrency:
+  group: kernel-${{ github.workflow }}-${{ inputs.kernel_type || 'mainline-stable' }}-${{ inputs.kernel_version || 'all' }}
+  cancel-in-progress: false
+
 jobs:
   setup:
     runs-on: ubuntu-24.04
