@@ -1,0 +1,139 @@
+#==========================================================================
+# Description: Compile kernel packages
+#==========================================================================
+
+name: Compile kernel packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_type:
+        description: "Kernel type."
+        required: false
+        default: "mainline-stable"
+        type: choice
+        options:
+          - mainline-stable
+          - mainline-beta
+          - rockchip-rk35xx
+          - rockchip-rk3588
+      kernel_version:
+        description: "Kernel version series."
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - newest
+          - 5.10.y
+          - 5.15.y
+          - 6.1.y
+          - 6.6.y
+          - 6.12.y
+          - 6.18.y
+  schedule:
+    - cron: "17 2 * * 1"
+
+env:
+  TZ: Etc/UTC
+
+jobs:
+  setup:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set kernel matrix
+        id: set-matrix
+        run: |
+          kernel_type="${{ inputs.kernel_type || 'mainline-stable' }}"
+          kernel_version="${{ inputs.kernel_version || 'all' }}"
+
+          mainline_all='{"include":[{"version":"5.10.y","source":"ophub"},{"version":"5.15.y","source":"ophub"},{"version":"6.1.y","source":"ophub"},{"version":"6.6.y","source":"ophub"},{"version":"6.12.y","source":"ophub"},{"version":"6.18.y","source":"ophub"}]}'
+          mainline_newest='{"include":[{"version":"6.12.y","source":"ophub"},{"version":"6.18.y","source":"ophub"}]}'
+          rockchip_all='{"include":[{"version":"5.10.y","source":"ophub/linux-5.10.y-rk35xx"},{"version":"6.1.y","source":"ophub/linux-6.1.y-rockchip"}]}'
+
+          case "${kernel_type}" in
+            mainline-stable)
+              release_tag="kernel_stable"
+              kernel_config="kernel/kernel-config/release/stable"
+              case "${kernel_version}" in
+                all|newest) matrix="${mainline_all}" ;;
+                5.10.y|5.15.y|6.1.y|6.6.y|6.12.y|6.18.y) matrix="{\"include\":[{\"version\":\"${kernel_version}\",\"source\":\"ophub\"}]}" ;;
+                *) echo "Unsupported stable kernel version: ${kernel_version}"; exit 1 ;;
+              esac
+              ;;
+            mainline-beta)
+              release_tag="kernel_beta"
+              kernel_config="kernel/kernel-config/release/beta"
+              case "${kernel_version}" in
+                newest) matrix="${mainline_newest}" ;;
+                all) matrix="${mainline_all}" ;;
+                5.10.y|5.15.y|6.1.y|6.6.y|6.12.y|6.18.y) matrix="{\"include\":[{\"version\":\"${kernel_version}\",\"source\":\"ophub\"}]}" ;;
+                *) echo "Unsupported beta kernel version: ${kernel_version}"; exit 1 ;;
+              esac
+              ;;
+            rockchip-rk35xx)
+              release_tag="kernel_rk35xx"
+              kernel_config="kernel/kernel-config/release/rk35xx"
+              case "${kernel_version}" in
+                all|newest) matrix="${rockchip_all}" ;;
+                5.10.y) matrix='{"include":[{"version":"5.10.y","source":"ophub/linux-5.10.y-rk35xx"}]}' ;;
+                6.1.y) matrix='{"include":[{"version":"6.1.y","source":"ophub/linux-6.1.y-rockchip"}]}' ;;
+                *) echo "Unsupported RK35xx kernel version: ${kernel_version}"; exit 1 ;;
+              esac
+              ;;
+            rockchip-rk3588)
+              release_tag="kernel_rk3588"
+              kernel_config="kernel/kernel-config/release/rk3588"
+              case "${kernel_version}" in
+                all|newest) matrix="${rockchip_all}" ;;
+                5.10.y) matrix='{"include":[{"version":"5.10.y","source":"ophub/linux-5.10.y-rk35xx"}]}' ;;
+                6.1.y) matrix='{"include":[{"version":"6.1.y","source":"ophub/linux-6.1.y-rockchip"}]}' ;;
+                *) echo "Unsupported RK3588 kernel version: ${kernel_version}"; exit 1 ;;
+              esac
+              ;;
+            *) echo "Unsupported kernel type: ${kernel_type}"; exit 1 ;;
+          esac
+
+          matrix="$(jq -c --arg tag "${release_tag}" --arg config "${kernel_config}" '.include |= map(. + {release_tag: $tag, config: $config})' <<< "${matrix}")"
+          echo "matrix=${matrix}" >> "${GITHUB_OUTPUT}"
+
+  build:
+    needs: setup
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.repository.owner.id == github.event.sender.id }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    name: ${{ inputs.kernel_type || 'mainline-stable' }}-${{ matrix.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Compile kernel
+        uses: ./
+        with:
+          build_target: kernel
+          kernel_source: ${{ matrix.source }}
+          kernel_version: ${{ matrix.version }}
+          kernel_auto: true
+          kernel_package: all
+          kernel_sign: -ophub
+          kernel_toolchain: clang
+          kernel_config: ${{ matrix.config }}
+          docker_hostpath: ${{ github.workspace }}
+
+      - name: Upload kernel packages
+        uses: ophub/upload-to-releases@main
+        if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
+        with:
+          tag: ${{ matrix.release_tag }}
+          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*.tar.gz
+          allow_updates: true
+          remove_artifacts: false
+          replaces_artifacts: true
+          make_latest: false
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
