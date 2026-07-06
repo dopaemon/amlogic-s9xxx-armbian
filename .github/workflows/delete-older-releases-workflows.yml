@@ -1,0 +1,61 @@
+#==========================================================================
+# Description: Delete older DietPi image releases
+#==========================================================================
+
+name: Delete older releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: "Number of newest matching releases to keep."
+        required: false
+        default: "4"
+      prefix:
+        description: "Only delete release tags with this prefix."
+        required: false
+        default: "DietPi_"
+      dry_run:
+        description: "Print releases without deleting them."
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - true
+          - false
+  schedule:
+    - cron: "43 3 * * 0"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Delete old releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP: ${{ inputs.keep || '4' }}
+          PREFIX: ${{ inputs.prefix || 'DietPi_' }}
+          DRY_RUN: ${{ inputs.dry_run || 'true' }}
+        run: |
+          set -euo pipefail
+          keep="${KEEP}"
+          [[ "${keep}" =~ ^[0-9]+$ ]] || { echo "KEEP must be numeric"; exit 1; }
+
+          gh release list --limit 200 --json tagName,createdAt,isDraft,isPrerelease \
+            --jq '.[] | select(.isDraft == false and .isPrerelease == false) | select(.tagName | startswith(env.PREFIX)) | [.createdAt,.tagName] | @tsv' \
+            | sort -r \
+            | tail -n +$((keep + 1)) \
+            | cut -f2 \
+            | while IFS= read -r tag; do
+                case "${tag}" in
+                  kernel_stable|kernel_beta|kernel_flippy|kernel_rk3588|kernel_rk35xx|dev) continue ;;
+                esac
+                if [[ "${DRY_RUN}" == "true" ]]; then
+                  echo "would delete ${tag}"
+                else
+                  gh release delete "${tag}" --cleanup-tag --yes
+                fi
+              done

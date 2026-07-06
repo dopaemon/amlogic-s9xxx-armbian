@@ -267,21 +267,13 @@ on:
           - 6.1.y_6.12.y
           - 6.1.y_6.18.y
       kernel_repo:
-        description: "Fallback kernel package repository when local compile is disabled."
+        description: "Set the kernel package repository."
         required: false
         default: "ophub/kernel"
         type: choice
         options:
           - ophub/kernel
           - kernel
-      compile_kernel:
-        description: "Compile Ophub kernel source with local kernel config before repack."
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - true
-          - false
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
@@ -462,33 +454,6 @@ jobs:
           make_latest: true
           gh_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compile Ophub kernel packages with local config
-        uses: ./
-        if: ${{ steps.clean.outputs.status == 'success' && inputs.compile_kernel == 'true' && !cancelled() }}
-        with:
-          build_target: kernel
-          kernel_source: ophub
-          kernel_version: ${{ inputs.armbian_kernel }}
-          kernel_auto: true
-          kernel_package: all
-          kernel_sign: -ophub
-          kernel_toolchain: clang
-          config_flavor: ""
-          kernel_config: kernel/kernel-config/release/${{ inputs.kernel_usage }}
-          docker_hostpath: ${{ github.workspace }}
-
-      - name: Prepare local kernel package layout
-        if: ${{ steps.clean.outputs.status == 'success' && inputs.compile_kernel == 'true' && !cancelled() }}
-        run: |
-          shopt -s nullglob
-          for kernel_dir in compile-kernel/output/[0-9]*.[0-9]*.[0-9]*; do
-            [[ -d "${kernel_dir}" ]] || continue
-            tag_dir="compile-kernel/output/${{ inputs.kernel_usage }}/${kernel_dir##*/}"
-            mkdir -p "${tag_dir%/*}"
-            ln -sfn "../../${kernel_dir##*/}" "${tag_dir}"
-          done
-          ls -R compile-kernel/output/${{ inputs.kernel_usage }} 2>/dev/null || true
-
       - name: Repack DietPi for target boards
         uses: ./
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
@@ -498,7 +463,7 @@ jobs:
           armbian_board: ${{ inputs.armbian_board }}
           armbian_kernel: ${{ inputs.armbian_kernel }}
           auto_kernel: true
-          kernel_repo: ${{ inputs.compile_kernel == 'true' && format('{0}/compile-kernel/output', github.workspace) || inputs.kernel_repo }}
+          kernel_repo: ${{ inputs.kernel_repo }}
           kernel_usage: ${{ inputs.kernel_usage }}
           armbian_fstype: ${{ inputs.armbian_fstype }}
           builder_name: ${{ inputs.builder_name }}
