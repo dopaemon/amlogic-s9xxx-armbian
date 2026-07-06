@@ -66,6 +66,7 @@ Important defaults:
 - Kernel config: `kernel/kernel-config/release/<kernel_usage>/config-*`
 - Kernel package repo: `dopaemon/amlogic-s9xxx-armbian`
 - Fallback kernel package repo: `ophub/kernel`
+- Custom rootfs overlay: `custom-files/`
 - Default board: `s905w`
 - Local action: `uses: ./`
 
@@ -95,6 +96,21 @@ kernel/<tag>/<version>/dtb-<platform>-*.tar.gz
 kernel/<tag>/<version>/modules-*.tar.gz
 kernel/<tag>/<version>/header-*.tar.gz
 ```
+
+## Custom files
+
+The image workflow copies `custom-files/` into the rebuilt root filesystem during the repack step. Use it for small local additions without changing the inherited Ophub scripts.
+
+Examples:
+
+```text
+custom-files/etc/sysctl.d/99-custom.conf
+custom-files/etc/modules-load.d/custom.conf
+custom-files/usr/local/bin/my-tool
+custom-files/etc/custom_service/start_service.sh
+```
+
+Keep scripts idempotent and binaries executable.
 
 ## Runtime compatibility
 

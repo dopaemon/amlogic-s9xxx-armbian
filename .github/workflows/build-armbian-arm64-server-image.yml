@@ -313,6 +313,10 @@ on:
         description: "Set the base build board name."
         required: false
         default: "odroidn2"
+      armbian_files:
+        description: "Set custom rootfs overlay path."
+        required: false
+        default: "custom-files"
 
 env:
   TZ: Etc/UTC
@@ -507,6 +511,7 @@ jobs:
           kernel_repo: ${{ inputs.kernel_repo }}
           kernel_usage: ${{ inputs.kernel_usage }}
           armbian_fstype: ${{ inputs.armbian_fstype }}
+          armbian_files: ${{ inputs.armbian_files }}
           builder_name: ${{ inputs.builder_name }}
 
       - name: Upload rebuilt images to Release
