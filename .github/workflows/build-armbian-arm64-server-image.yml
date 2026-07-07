@@ -482,9 +482,16 @@ jobs:
           cd build/
           rm -rf $(ls . | grep -v "^output$" | xargs) 2>/dev/null
 
+          # Read the current DietPi version without cloning the runtime repo
+          version_file="/tmp/dietpi-version"
+          curl -fsSL https://raw.githubusercontent.com/MichaIng/DietPi/master/.update/version -o "${version_file}"
+          # shellcheck disable=SC1090
+          source "${version_file}"
+          dietpi_version="${G_REMOTE_VERSION_CORE}.${G_REMOTE_VERSION_SUB}.${G_REMOTE_VERSION_RC}"
+
           # Display disk usage after cleanup
           df -hT ${PWD}
-          echo "build_tag=DietPi_${{ matrix.release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "build_tag=DietPi_${dietpi_version}_${{ matrix.release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Upload DietPi base image to Release
