@@ -317,15 +317,7 @@ tolog "59. Disable the ssh.socket and enable ssh.service"
         tolog "86. Update custom board info: ${armbian_image_file}"
     }
 
-    # Update os-release information
-    [[ -f "${os_release_file}" ]] && {
-        short_version="$(cat ${os_release_file} | grep -E '^PRETTY_NAME=' | grep -oE '[2-9][0-9]\.[0-9]{1,2}\.[0-9]{1,2}' | head -n 1 || true)"
-        sed -i \
-            -e "s|^PRETTY_NAME=.*|PRETTY_NAME=\"Armbian OS ${short_version} ${DISTRIBUTION_CODENAME}\"|g" \
-            -e "s|^ARMBIAN_PRETTY_NAME=.*|ARMBIAN_PRETTY_NAME=\"Armbian OS ${short_version} ${DISTRIBUTION_CODENAME}\"|g" \
-            ${os_release_file} 2>/dev/null || true
-        tolog "87. Update custom board info: ${os_release_file}"
-    }
+    # Keep DietPi /etc/os-release identity untouched.
 
     # Disable unused serial console on non-Amlogic platforms
     [[ "${platform_name}" != "amlogic" ]] && {

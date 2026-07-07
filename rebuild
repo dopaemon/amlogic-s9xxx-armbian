@@ -754,7 +754,11 @@ extract_armbian() {
     release_codename="$(cat ${os_release_file} | grep -oE "^VERSION_CODENAME=.*" | cut -d"=" -f2)"
     [[ -z "${release_codename}" ]] && error_msg "The [ ${os_release_file}: VERSION_CODENAME ] is invalid."
 
-    # Delete all files of /boot partition and replace it later
+    # Preserve DietPi boot config while replacing kernel/bootloader files later.
+    dietpi_boot_backup="${tmp_build}/dietpi-boot"
+    rm -rf "${dietpi_boot_backup}"
+    mkdir -p "${dietpi_boot_backup}"
+    find boot -maxdepth 1 \( -name 'dietpi*' -o -name 'Automation_Custom_Script.sh' \) -exec cp -a {} "${dietpi_boot_backup}/" \; 2>/dev/null || true
     rm -rf boot/*
     # Delete the kernel files and replace it later
     rm -rf usr/lib/modules/*
@@ -1060,6 +1064,10 @@ refactor_bootfs() {
             "${armbianenv_conf_file}"
     }
 
+    # Restore DietPi boot config after Ophub kernel/boot replacement.
+    dietpi_boot_backup="${tmp_build}/dietpi-boot"
+    [[ -d "${dietpi_boot_backup}" ]] && cp -af --no-preserve=ownership "${dietpi_boot_backup}/." "${tag_bootfs}/" 2>/dev/null || true
+
     # Check device configuration files
     [[ -f "${uenv_conf_file}" || -f "${rename_extlinux_file}" || -f "${armbianenv_conf_file}" ]] || error_msg "Missing [ /boot/*Env.txt ]"
 }
@@ -1138,11 +1146,17 @@ refactor_rootfs() {
     else
         fstab_string="defaults,noatime,nodiratime,commit=600,errors=remount-ro"
     fi
-    # Update mount settings
-    sed -i "s|^LABEL=ROOTFS.*|UUID=${ROOTFS_UUID}  /      ${rootfs_type}  ${fstab_string}  0 1|g" etc/fstab
-    [[ "${bootfs_type}" == "ext4" ]] && {
-        sed -i "s|^LABEL=BOOT.*|UUID=${BOOT_UUID}  /boot  ext4  defaults  0 2|g" etc/fstab
-    }
+    # Update mount settings while preserving DietPi-specific fstab entries.
+    if grep -qE '^[^#[:space:]]+[[:space:]]+/[[:space:]]+' etc/fstab; then
+        sed -i -E "0,/^[^#[:space:]]+[[:space:]]+\/[[:space:]]+/s|^[^#[:space:]]+[[:space:]]+/[[:space:]].*|UUID=${ROOTFS_UUID}  /      ${rootfs_type}  ${fstab_string}  0 1|" etc/fstab
+    else
+        echo "UUID=${ROOTFS_UUID}  /      ${rootfs_type}  ${fstab_string}  0 1" >>etc/fstab
+    fi
+    if grep -qE '^[^#[:space:]]+[[:space:]]+/boot[[:space:]]+' etc/fstab; then
+        sed -i -E "s|^[^#[:space:]]+[[:space:]]+/boot[[:space:]].*|UUID=${BOOT_UUID}  /boot  ${bootfs_type}  defaults  0 2|" etc/fstab
+    else
+        echo "UUID=${BOOT_UUID}  /boot  ${bootfs_type}  defaults  0 2" >>etc/fstab
+    fi
 
     # Update release information
     [[ -f "${armbian_release_file}" ]] && {
@@ -1224,17 +1238,6 @@ refactor_rootfs() {
     # Reduce network latency [ A start job is running for raise network interfaces (5 mins 1 sec) ]
     network_service="usr/lib/systemd/system/networking.service"
     [[ -f "${network_service}" ]] && sed -i "s|^#*TimeoutStartSec=.*|TimeoutStartSec=10sec|g" ${network_service}
-
-    # Add tasks that need to be executed on initial startup
-    armbian_firstrun="usr/lib/armbian/armbian-firstrun"
-    [[ -f "${armbian_firstrun}" ]] && sed -i '/\/etc\/armbian-release/i\[[ -x "/usr/sbin/armbian-fix" ]] && . /usr/sbin/armbian-fix' ${armbian_firstrun}
-    # Configuration values for the armbian-firstrun service, true  = delete + generate host keys
-    etc_firstrun="etc/default/armbian-firstrun"
-    if [[ -f "${etc_firstrun}" ]] && grep -q "^OPENSSHD_REGENERATE_HOST_KEYS" "${etc_firstrun}"; then
-        sed -i "s|^OPENSSHD_REGENERATE_HOST_KEYS=.*|OPENSSHD_REGENERATE_HOST_KEYS=true|" "${etc_firstrun}"
-    else
-        echo "OPENSSHD_REGENERATE_HOST_KEYS=true" >>"${etc_firstrun}"
-    fi
 
     # Improve systemd startup speed, avoid timeout waiting
     armbian_firstlogin="usr/lib/armbian/armbian-firstlogin"

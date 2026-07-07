@@ -18,8 +18,7 @@ on:
           - all
           - trixie
           - bookworm
-          - resolute
-          - noble
+          - forky
       armbian_board:
         description: "Select device board."
         required: false
@@ -332,9 +331,15 @@ jobs:
         id: set-matrix
         run: |
           if [[ "${{ inputs.set_release }}" == "all" ]]; then
-            MATRIX='{"include":[{"release":"trixie"},{"release":"bookworm"},{"release":"resolute"},{"release":"noble"}]}'
+            MATRIX='{"include":[{"release":"trixie","dietpi_image":"DietPi%5FContainer-ARMv8-Trixie.img.xz"},{"release":"bookworm","dietpi_image":"DietPi%5FContainer-ARMv8-Bookworm.img.xz"},{"release":"forky","dietpi_image":"DietPi%5FContainer-ARMv8-Forky.img.xz"}]}'
           else
-            MATRIX='{"include":[{"release":"${{ inputs.set_release }}"}]}'
+            case "${{ inputs.set_release }}" in
+              trixie) dietpi_image="DietPi%5FContainer-ARMv8-Trixie.img.xz" ;;
+              bookworm) dietpi_image="DietPi%5FContainer-ARMv8-Bookworm.img.xz" ;;
+              forky) dietpi_image="DietPi%5FContainer-ARMv8-Forky.img.xz" ;;
+              *) echo "Unsupported DietPi release: ${{ inputs.set_release }}"; exit 1 ;;
+            esac
+            MATRIX="{"include":[{"release":"${{ inputs.set_release }}","dietpi_image":"${dietpi_image}"}]}"
           fi
           echo "matrix=${MATRIX}" >> "${GITHUB_OUTPUT}"
 
@@ -440,78 +445,37 @@ jobs:
           df -Th
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Download DietPi build source
+      - name: Download DietPi ARMv8 base image
         id: down
         working-directory: /builder
-        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
+        if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         run: |
-          df -hT ${PWD}
-          git clone -q --single-branch --depth=1 --branch=dietpi https://github.com/MichaIng/build.git build
-          ln -sf /builder/build ${{ github.workspace }}/build
+          mkdir -p build/output/images
+          image_url="https://dietpi.com/downloads/images/${{ matrix.dietpi_image }}"
+          image_path="build/output/images/${{ matrix.dietpi_image }}"
+          echo "Downloading ${image_url}"
+          curl -fL --retry 5 --retry-delay 10 "${image_url}" -o "${image_path}"
+          ls -lh build/output/images
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Compile DietPi base [ ${{ matrix.release }} ]
-        id: compile
-        working-directory: /builder
+      - name: Set DietPi release tag
+        id: tag
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
-          # Enable QEMU emulation for ARM cross-compilation
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
-
-          # Set the board name for the base image
-          config_board="${{ inputs.config_board }}"
-          [[ -z "${config_board}" ]] && config_board="odroidn2"
-
-          # Compile options reference: https://docs.armbian.com/Developer-Guide_Build-Options
-          cd build/
-              ./compile.sh RELEASE=${{ matrix.release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
-                           BUILD_ONLY=default HOST=localhost BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes KERNEL_BUILD_DTBS=no KERNEL_BTF=no
-
-          echo "status=success" >> ${GITHUB_OUTPUT}
-
-      - name: Organize output files and reclaim disk space
-        id: clean
-        if: ${{ steps.compile.outputs.status == 'success' && !cancelled() }}
-        run: |
-          # Extract essential artifacts and remove build files
-          chmod +x ${ROOTFS_SCRIPT}
-          ${ROOTFS_SCRIPT} -v ${{ matrix.release }} -s true -c true -k true -p arm64
-
-          # Remove build files while preserving output
-          cd build/
-          rm -rf $(ls . | grep -v "^output$" | xargs) 2>/dev/null
-
-          # Read the current DietPi version without cloning the runtime repo
           version_file="/tmp/dietpi-version"
           curl -fsSL https://raw.githubusercontent.com/MichaIng/DietPi/master/.update/version -o "${version_file}"
           # shellcheck disable=SC1090
           source "${version_file}"
           dietpi_version="${G_REMOTE_VERSION_CORE}.${G_REMOTE_VERSION_SUB}.${G_REMOTE_VERSION_RC}"
-
-          # Display disk usage after cleanup
-          df -hT ${PWD}
           echo "build_tag=DietPi_${dietpi_version}_${{ matrix.release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Upload DietPi base image to Release
-        uses: ophub/upload-to-releases@main
-        if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
-        with:
-          tag: ${{ env.build_tag }}
-          artifacts: build/output/images/*
-          allow_updates: true
-          remove_artifacts: false
-          replaces_artifacts: true
-          make_latest: true
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Repack DietPi for target boards
         uses: ./
-        if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
+        if: ${{ steps.tag.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: armbian
-          armbian_path: ${{ github.workspace }}/build/output/images/*.img.gz
+          armbian_path: /builder/build/output/images/*.img.xz
           armbian_board: ${{ inputs.armbian_board }}
           armbian_kernel: ${{ inputs.armbian_kernel }}
           auto_kernel: true
@@ -534,7 +498,7 @@ jobs:
           gh_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             ### DietPi TV box image
-            - Based on DietPi build source + Ophub TV box resources
+            - Based on official DietPi ARMv8 image + Ophub TV box resources
             - Default username/password follow DietPi image defaults
             - Installer: `dietpi-install` (`armbian-install` compatibility alias)
             ### Applicable Platform

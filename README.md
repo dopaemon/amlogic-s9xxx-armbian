@@ -6,7 +6,7 @@ This project is DietPi-focused: the goal is to provide a smaller, simpler build 
 
 ## Features
 
-- Builds DietPi arm64 base images from `MichaIng/build` branch `dietpi`
+- Rebuilds official DietPi ARMv8 base images for TV box targets
 - Rebuilds images for supported TV box targets
 - Keeps the full Ophub board database
 - Supports Amlogic, Rockchip, and Allwinner platforms
@@ -61,7 +61,7 @@ Build kernel packages first when using this repository as `kernel_repo`; the ima
 
 Important defaults:
 
-- DietPi source: `MichaIng/build:dietpi`
+- DietPi source: official `dietpi.com/downloads/images` ARMv8 images
 - Kernel source: Ophub kernel sources
 - Kernel config: `kernel/kernel-config/release/<kernel_usage>/config-*`
 - Kernel package repo: `dopaemon/amlogic-s9xxx-armbian`
