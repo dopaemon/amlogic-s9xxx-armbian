@@ -339,7 +339,7 @@ jobs:
               forky) dietpi_image="DietPi%5FContainer-ARMv8-Forky.img.xz" ;;
               *) echo "Unsupported DietPi release: ${{ inputs.set_release }}"; exit 1 ;;
             esac
-            MATRIX="{"include":[{"release":"${{ inputs.set_release }}","dietpi_image":"${dietpi_image}"}]}"
+            MATRIX="{\"include\":[{\"release\":\"${{ inputs.set_release }}\",\"dietpi_image\":\"${dietpi_image}\"}]}"
           fi
           echo "matrix=${MATRIX}" >> "${GITHUB_OUTPUT}"
 
