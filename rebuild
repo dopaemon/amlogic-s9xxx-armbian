@@ -50,7 +50,7 @@
 # Related file storage path
 current_path="${PWD}"
 armbian_outputpath="${current_path}/build/output/images"
-armbian_rebuild_file="${armbian_outputpath}/*-trunk_*.img"
+armbian_rebuild_file="${armbian_outputpath}/*.img"
 build_path="${current_path}/build-armbian"
 kernel_path="${build_path}/kernel"
 uboot_path="${build_path}/u-boot"
@@ -1317,7 +1317,7 @@ refactor_rootfs() {
         "MLUBOOT_STATUS='no'"
         "MAINLINE_UBOOT='${RECORD_MAINLINE_UBOOT}'"
         "BOOTLOADER_IMG='${RECORD_BOOTLOADER_IMG}'"
-        "BUILD_REPOSITORY='github.com/MichaIng/build'"
+        "BUILD_REPOSITORY='dietpi.com/downloads/images'"
         "REBUILD_REPOSITORY='DietPi TV Box Builder'"
         "UPSTREAM_REPOSITORY='github.com/ophub/amlogic-s9xxx-armbian'"
         "CONTRIBUTORS='${CONTRIBUTORS}'"

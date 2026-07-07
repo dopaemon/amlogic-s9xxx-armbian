@@ -291,15 +291,10 @@ on:
         options:
           - ext4
           - btrfs
-      armbian_edition:
-        description: "Select image edition type."
+      image_tag_suffix:
+        description: "Set release tag suffix."
         required: false
         default: "server"
-        type: choice
-        options:
-          - server
-          - desktop
-          - beta
       builder_name:
         description: "Set image builder signature."
         required: false
@@ -308,10 +303,6 @@ on:
         options:
           - ophub
           - angel
-      config_board:
-        description: "Set the base build board name."
-        required: false
-        default: "odroidn2"
       armbian_files:
         description: "Set custom rootfs overlay path."
         required: false
@@ -331,12 +322,12 @@ jobs:
         id: set-matrix
         run: |
           if [[ "${{ inputs.set_release }}" == "all" ]]; then
-            MATRIX='{"include":[{"release":"trixie","dietpi_image":"DietPi%5FContainer-ARMv8-Trixie.img.xz"},{"release":"bookworm","dietpi_image":"DietPi%5FContainer-ARMv8-Bookworm.img.xz"},{"release":"forky","dietpi_image":"DietPi%5FContainer-ARMv8-Forky.img.xz"}]}'
+            MATRIX='{"include":[{"release":"trixie","dietpi_image":"DietPi_Container-ARMv8-Trixie.img.xz"},{"release":"bookworm","dietpi_image":"DietPi_Container-ARMv8-Bookworm.img.xz"},{"release":"forky","dietpi_image":"DietPi_Container-ARMv8-Forky.img.xz"}]}'
           else
             case "${{ inputs.set_release }}" in
-              trixie) dietpi_image="DietPi%5FContainer-ARMv8-Trixie.img.xz" ;;
-              bookworm) dietpi_image="DietPi%5FContainer-ARMv8-Bookworm.img.xz" ;;
-              forky) dietpi_image="DietPi%5FContainer-ARMv8-Forky.img.xz" ;;
+              trixie) dietpi_image="DietPi_Container-ARMv8-Trixie.img.xz" ;;
+              bookworm) dietpi_image="DietPi_Container-ARMv8-Bookworm.img.xz" ;;
+              forky) dietpi_image="DietPi_Container-ARMv8-Forky.img.xz" ;;
               *) echo "Unsupported DietPi release: ${{ inputs.set_release }}"; exit 1 ;;
             esac
             MATRIX="{\"include\":[{\"release\":\"${{ inputs.set_release }}\",\"dietpi_image\":\"${dietpi_image}\"}]}"
@@ -451,8 +442,9 @@ jobs:
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         run: |
           mkdir -p build/output/images
-          image_url="https://dietpi.com/downloads/images/${{ matrix.dietpi_image }}"
-          image_path="build/output/images/${{ matrix.dietpi_image }}"
+          image_name="${{ matrix.dietpi_image }}"
+          image_url="https://dietpi.com/downloads/images/${image_name//_/%5F}"
+          image_path="build/output/images/${image_name}"
           echo "Downloading ${image_url}"
           curl -fL --retry 5 --retry-delay 10 "${image_url}" -o "${image_path}"
           ls -lh build/output/images
@@ -467,7 +459,7 @@ jobs:
           # shellcheck disable=SC1090
           source "${version_file}"
           dietpi_version="${G_REMOTE_VERSION_CORE}.${G_REMOTE_VERSION_SUB}.${G_REMOTE_VERSION_RC}"
-          echo "build_tag=DietPi_${dietpi_version}_${{ matrix.release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "build_tag=DietPi_${dietpi_version}_${{ matrix.release }}_arm64_${{ inputs.image_tag_suffix }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Repack DietPi for target boards
@@ -475,7 +467,7 @@ jobs:
         if: ${{ steps.tag.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: armbian
-          armbian_path: /builder/build/output/images/*.img.xz
+          armbian_path: /builder/build/output/images/${{ matrix.dietpi_image }}
           armbian_board: ${{ inputs.armbian_board }}
           armbian_kernel: ${{ inputs.armbian_kernel }}
           auto_kernel: true
@@ -490,7 +482,7 @@ jobs:
         if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
         with:
           tag: ${{ env.build_tag }}
-          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
+          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*.img.gz
           allow_updates: true
           remove_artifacts: false
           replaces_artifacts: true

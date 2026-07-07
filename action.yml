@@ -202,7 +202,8 @@ runs:
                 copy_from_path="${{ inputs.armbian_files }}"
                 copy_from_path="${copy_from_path%/}"
                 [[ "${copy_from_path}" != /* ]] && copy_from_path="${{ github.workspace }}/${copy_from_path}"
-                copy_to_path="build-armbian/armbian-files/common-files"
+                copy_to_path="${{ github.action_path }}/build-armbian/armbian-files/common-files"
+                mkdir -p "${copy_to_path}"
                 cp -avf --no-preserve=ownership "${copy_from_path}/." -t "${copy_to_path}/" || true
             else
                 echo -e "Using the default Armbian rebuild files."
