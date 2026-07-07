@@ -817,8 +817,12 @@ make_image() {
     [[ -n "${loop_new}" ]] || error_msg "losetup ${build_image_file} failed."
 
     # Confirm BOOT_UUID
-    BOOT_UUID="$(cat /proc/sys/kernel/random/uuid)"
-    [[ -z "${BOOT_UUID}" ]] && BOOT_UUID="$(uuidgen)"
+    if [[ "${bootfs_type}" == "fat32" ]]; then
+        BOOT_UUID="$(printf '%08X' "${RANDOM}${RANDOM}" | tail -c 9)"
+    else
+        BOOT_UUID="$(cat /proc/sys/kernel/random/uuid)"
+        [[ -z "${BOOT_UUID}" ]] && BOOT_UUID="$(uuidgen)"
+    fi
     [[ -z "${BOOT_UUID}" ]] && error_msg "The uuidgen is invalid, cannot continue."
     # Confirm ROOTFS_UUID
     ROOTFS_UUID="$(cat /proc/sys/kernel/random/uuid)"
@@ -827,7 +831,7 @@ make_image() {
 
     # Format bootfs partition
     if [[ "${bootfs_type}" == "fat32" ]]; then
-        mkfs.vfat -F 32 -n "BOOT" ${loop_new}p1 >/dev/null 2>&1
+        mkfs.vfat -F 32 -i "${BOOT_UUID}" -n "BOOT" ${loop_new}p1 >/dev/null 2>&1
     else
         mkfs.ext4 -F -q -U ${BOOT_UUID} -L "BOOT" -b 4k -m 0 ${loop_new}p1 >/dev/null 2>&1
     fi
@@ -1153,10 +1157,12 @@ refactor_rootfs() {
     else
         echo "UUID=${ROOTFS_UUID}  /      ${rootfs_type}  ${fstab_string}  0 1" >>etc/fstab
     fi
+    fstab_bootfs_type="${bootfs_type}"
+    [[ "${fstab_bootfs_type}" == "fat32" ]] && fstab_bootfs_type="vfat"
     if grep -qE '^[^#[:space:]]+[[:space:]]+/boot[[:space:]]+' etc/fstab; then
-        sed -i -E "s|^[^#[:space:]]+[[:space:]]+/boot[[:space:]].*|UUID=${BOOT_UUID}  /boot  ${bootfs_type}  defaults  0 2|" etc/fstab
+        sed -i -E "s|^[^#[:space:]]+[[:space:]]+/boot[[:space:]].*|UUID=${BOOT_UUID}  /boot  ${fstab_bootfs_type}  defaults  0 2|" etc/fstab
     else
-        echo "UUID=${BOOT_UUID}  /boot  ${bootfs_type}  defaults  0 2" >>etc/fstab
+        echo "UUID=${BOOT_UUID}  /boot  ${fstab_bootfs_type}  defaults  0 2" >>etc/fstab
     fi
 
     # Update release information
