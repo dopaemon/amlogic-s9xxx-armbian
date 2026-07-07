@@ -119,13 +119,14 @@ Some internal names, paths, and commands still use `armbian` naming for compatib
 Examples:
 
 ```text
+dietpi-install
 armbian-install
 armbian-update
 armbian_* variables
 build-armbian/ paths
 ```
 
-These are compatibility shims, not project branding.
+`dietpi-install` is a compatibility alias for the inherited `armbian-install` TV box installer. Other `armbian` names are compatibility shims, not project branding.
 
 ## Credits
 

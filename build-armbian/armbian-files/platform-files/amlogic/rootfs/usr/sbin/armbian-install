@@ -203,10 +203,7 @@ init_var() {
 # Search the model list
 search_aml_model() {
     local search_soc_id="${1}"
-    local ret_count="$(echo "${model_database}" | grep -E "^${search_soc_id}:" | wc -l)"
-    if [[ "${ret_count}" -eq "1" ]]; then
-        echo "${model_database}" | grep -E "^${search_soc_id}:"
-    fi
+    echo "${model_database}" | awk -F':' -v id="${search_soc_id}" '$1 == id {print; found++} END {exit found == 1 ? 0 : 1}'
 }
 
 # Functions: Displays a list of supported amlogic devices
@@ -235,7 +232,9 @@ show_aml_model() {
 
     # Display device options
     echo -ne "${OPTIONS} Please Input ID: "
-    read boxid
+    read -r boxid
+    boxid="${boxid//[[:space:]]/}"
+    [[ "${boxid}" =~ ^[0-9]+$ ]] || error_msg "Input error, exit!"
     if [[ "${boxid}" -eq "0" ]]; then
         read -p "Please Input SoC Name(such as s9xxx): " AMLOGIC_SOC
         AMLOGIC_SOC="${AMLOGIC_SOC}"
@@ -252,7 +251,7 @@ show_aml_model() {
         read -p "Please Input BOOTLOADER_IMG Name(such as xxx-bootloader.img): " BOOTLOADER_IMG
         BOOTLOADER_IMG="${BOOTLOADER_IMG}"
     else
-        ret="$(search_aml_model "${boxid}")"
+        ret="$(search_aml_model "${boxid}")" || true
         [[ -z "${ret}" ]] && error_msg "Input error, exit!"
 
         MODEL_NAME="$(echo "${ret}" | awk -F ':' '{print $2}')"
@@ -289,7 +288,8 @@ set_rootfs_type() {
 -----------------------------------------------
 EOF
     echo -ne "${OPTIONS} Please Input ID (1/2): "
-    read filetype
+    read -r filetype
+    filetype="${filetype//[[:space:]]/}"
     if [[ "${filetype}" -eq "2" || "${filetype}" == "btrfs" ]]; then
         file_system_type="btrfs"
         uenv_mount_string="UUID=${ROOTFS_UUID} rootflags=compress=zstd:6 rootfstype=btrfs"

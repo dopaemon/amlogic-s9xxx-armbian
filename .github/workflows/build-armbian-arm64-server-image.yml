@@ -536,7 +536,7 @@ jobs:
             ### DietPi TV box image
             - Based on DietPi build source + Ophub TV box resources
             - Default username/password follow DietPi image defaults
-            - Compatibility commands may include `armbian-install` / `armbian-update`
+            - Installer: `dietpi-install` (`armbian-install` compatibility alias)
             ### Applicable Platform
             - 🐧 `arm64`
             - Credit: https://github.com/ophub/amlogic-s9xxx-armbian
