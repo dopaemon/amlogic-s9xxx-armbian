@@ -1229,8 +1229,11 @@ refactor_rootfs() {
 
     # Disable motd scripts
     [[ -d "etc/update-motd.d" ]] && {
-        chmod -x etc/update-motd.d/*
-        chmod +x etc/update-motd.d/{10-*,20-*,30-*}
+        chmod -x etc/update-motd.d/* 2>/dev/null || true
+        shopt -s nullglob
+        motd_files=(etc/update-motd.d/{10-*,20-*,30-*})
+        shopt -u nullglob
+        [[ "${#motd_files[@]}" -gt 0 ]] && chmod +x "${motd_files[@]}"
     }
 
     # Explicitly disable resizing for Amlogic device [ /usr/lib/armbian/armbian-resize-filesystem ], use armbian-tf settings

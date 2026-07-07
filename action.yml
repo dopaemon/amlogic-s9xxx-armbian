@@ -237,9 +237,9 @@ runs:
             sudo ./rebuild "${make_args[@]}"
 
             cd ${{ github.action_path }}/${armbian_filepath}
-            # Remove the decompressed input .img to free up space; the original .img.gz is kept.
-            rm -f *-trunk_*.img
-            # Compress any remaining .img files (e.g. user-supplied extras). Guard against an
+            # Remove input base images; only rebuilt images should be packaged.
+            rm -f *-trunk_*.img DietPi_Container-*.img DietPi_Container-*.img.xz
+            # Compress any remaining .img files (e.g. rebuilt images). Guard against an
             # empty glob and prefer pigz when present, otherwise fall back to gzip.
             shopt -s nullglob
             imgs=( *.img )
